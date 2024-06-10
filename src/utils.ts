@@ -1,0 +1,78 @@
+export function generateTimeSeriesData(
+  startEpoch: number,
+  endEpoch: number,
+  interval: number,
+  config: TimeSeriesConfig = {}
+): TimeSeriesData[] {
+  if (startEpoch >= endEpoch) {
+    throw new Error('Start time must be less than end time.');
+  }
+  if (interval <= 0) {
+    throw new Error('Interval must be greater than zero.');
+  }
+
+  const amplitude = config.amplitude ?? 10; // Example amplitude of temperature variation
+  const mean = config.mean ?? 20; // Example mean temperature
+  const frequency = config.frequency ?? 1; // Frequency of the sine wave
+
+  const timeSeriesData: TimeSeriesData[] = [];
+
+  for (let timestamp = startEpoch; timestamp <= endEpoch; timestamp += interval) {
+    const timeInDay = (timestamp % 86400) / 86400; // Time of the day in fraction (0 to 1)
+    const value = mean + amplitude * Math.sin(2 * Math.PI * frequency * timeInDay - Math.PI / 2);
+
+    timeSeriesData.push([timestamp, value]);
+  }
+
+  return timeSeriesData;
+}
+
+export function divideIntoChunks<T>(array: T[], numberOfChunks: number): T[][] {
+  const chunkSize = Math.ceil(array.length / numberOfChunks);
+  const chunks: T[][] = [];
+
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+
+  return chunks;
+}
+
+type TimeSeriesConfig = {
+  amplitude?: number;
+  mean?: number;
+  frequency?: number;
+};
+type TimeSeriesData = [number, number];
+
+export function shuffle<T>(array: T[]): T[] {
+  let currentIndex = array.length,
+    temporaryValue,
+    randomIndex;
+
+  // While there remain elements to shuffle...
+  while (0 !== currentIndex) {
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex -= 1;
+
+    // And swap it with the current element.
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+
+  return array;
+}
+
+export function generateRandomNumber(min: number, max: number): number {
+  return Math.random() * (max - min) + min;
+}
+
+export function generateRandomTimeSeriesConfig(): TimeSeriesConfig {
+  const amplitude = generateRandomNumber(5, 20); // Random amplitude between 5 and 20
+  const mean = generateRandomNumber(15, 30); // Random mean between 15 and 30
+  const frequency = generateRandomNumber(0.1, 2); // Random frequency between 0.1 and 2
+
+  return { amplitude, mean, frequency };
+}
