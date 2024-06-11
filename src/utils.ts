@@ -154,33 +154,3 @@ export function amendTable(prevTable: Table, nextTable: Table): Table {
 
   return outTable!;
 }
-
-export function trimTable(table: Table, fromTime: number, toTime: number): Table {
-  let [times, ...vals] = table;
-  let fromIdx: number | undefined;
-  let toIdx: number | undefined;
-
-  // trim to bounds
-  if (times[0] < fromTime) {
-    fromIdx = closestIdx(fromTime, times);
-
-    if (times[fromIdx] < fromTime) {
-      fromIdx++;
-    }
-  }
-
-  if (times[times.length - 1] > toTime) {
-    toIdx = closestIdx(toTime, times);
-
-    if (times[toIdx] > toTime) {
-      toIdx--;
-    }
-  }
-
-  if (fromIdx != null || toIdx != null) {
-    times = times.slice(fromIdx ?? 0, toIdx);
-    vals = vals.map((vals2) => vals2.slice(fromIdx ?? 0, toIdx));
-  }
-
-  return [times, ...vals];
-}
