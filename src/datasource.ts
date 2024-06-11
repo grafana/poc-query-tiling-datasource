@@ -70,7 +70,7 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       const schema: DataFrameSchema = {
         refId: target.refId,
         fields: [
-          { name: 'time', type: FieldType.time },
+          { name: 'time', type: FieldType.time, config: { interval } },
           {
             name: target.refId,
             type: FieldType.number,
