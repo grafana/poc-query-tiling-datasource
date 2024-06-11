@@ -10,13 +10,19 @@ import {
   FieldType,
   StreamingDataFrame,
   StreamingFrameAction,
-  DataFrameData,
 } from '@grafana/data';
 
 import { MyQuery, MyDataSourceOptions, DEFAULT_QUERY, DataSourceResponse } from './types';
 import { Observable, lastValueFrom, merge } from 'rxjs';
 import _, { shuffle } from 'lodash';
-import { generateTimeSeriesData, generateRandomTimeSeriesConfig, generateRandomNumber, divideIntoChunks } from 'utils';
+import {
+  generateTimeSeriesData,
+  generateRandomTimeSeriesConfig,
+  divideIntoChunks,
+  amendTable,
+  Table,
+  generateRandomNumber,
+} from 'utils';
 
 export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   baseUrl: string;
@@ -40,19 +46,22 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
     to: number,
     target: MyQuery,
     panelId: number,
-    maxDataPoints?: number
+    interval: number,
+    maxDataPoints: number
   ): Observable<DataQueryResponse> {
     const streamId = `stream-${panelId}-${target.refId}`;
 
     // Get some random time series data
-    const timeSeriesData = generateTimeSeriesData(from, to, maxDataPoints || 1000, generateRandomTimeSeriesConfig());
+    const timeSeriesData = generateTimeSeriesData(from, to, interval, generateRandomTimeSeriesConfig());
 
     // Divide time series data into chunks and chuffle them to simulate random order of data arrival
     const numberOfChunks = Math.ceil(generateRandomNumber(2, 10));
     const chunks = divideIntoChunks(timeSeriesData, numberOfChunks);
+
     const shuffledChunks = shuffle(Array.from({ length: numberOfChunks }, (_, i) => i));
 
     const stream = new Observable<DataQueryResponse>((subscriber) => {
+      let result: Table = [[], []];
       let timeoutId: ReturnType<typeof setTimeout>;
       // Keep track of the current chunk index to indicate query state
       let currentIndex = 0;
@@ -72,13 +81,10 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
       // Create a new streaming data frame based on the provided schema
       const frame = StreamingDataFrame.fromDataFrameJSON(
         { schema },
-        { maxLength: maxDataPoints, action: StreamingFrameAction.Append }
+        { maxLength: maxDataPoints, action: StreamingFrameAction.Replace }
       );
 
       const publishNextChunk = () => {
-        const data: DataFrameData = {
-          values: [[], []],
-        };
         const currentChunk = chunks[shuffledChunks[currentIndex]];
         const nextData: [number[], number[]] = [[], []];
         currentChunk.forEach((d) => {
@@ -86,10 +92,14 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
           nextData[1].push(d[1]);
         });
 
-        data.values[0] = data.values[0].concat(nextData[0]);
-        data.values[1] = data.values[1].concat(nextData[1]);
+        // Make sure new results are correctly combined with the previous ones
+        result = amendTable(result, nextData);
 
-        frame.push({ data });
+        frame.push({
+          data: {
+            values: result,
+          },
+        });
         currentIndex++;
       };
 
@@ -120,13 +130,13 @@ export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
   }
 
   query(options: DataQueryRequest<MyQuery>): Observable<DataQueryResponse> {
-    const { range, targets, maxDataPoints, panelId } = options;
+    const { range, targets, intervalMs, maxDataPoints, panelId } = options;
     const from = range!.from.valueOf();
     const to = range!.to.valueOf();
     const streams: Array<Observable<DataQueryResponse>> = [];
 
     for (let target of targets) {
-      streams.push(this.getQueryStream(from, to, target, panelId || 1, maxDataPoints));
+      streams.push(this.getQueryStream(from, to, target, panelId || 1, intervalMs, maxDataPoints || 100));
     }
 
     return merge(...streams);
