@@ -68,5 +68,5 @@
     "rxjs": "^7.8.1",
     "tslib": "2.5.3"
   },
-  "packageManager": "npm@8.19.2"
+  "packageManager": "npm@11.9.0"
 }
